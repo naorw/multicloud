@@ -1,0 +1,40 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: aws-registry-credentials-cron
+spec:
+  schedule: "* */8 * * *"
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2  
+  jobTemplate:
+    spec:
+      backoffLimit: 4
+      template:
+        spec:
+          terminationGracePeriodSeconds: 0
+          restartPolicy: Never
+          containers:
+          - name: kubectl
+            imagePullPolicy: IfNotPresent
+            image: naorw/ecr-credentials-cron:v01
+            command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              export AWS_ACCESS_KEY_ID=
+              export AWS_SECRET_ACCESS_KEY=
+              AWS_ACCOUNT=<XXXXXXXXXXX-AWS-ACCOUNT-ID>
+              AWS_REGION=
+              DOCKER_REGISTRY_SERVER=
+              DOCKER_USER=AWS
+              DOCKER_PASSWORD=`aws ecr get-login --region ${AWS_REGION} --registry-ids ${AWS_ACCOUNT} | cut -d' ' -f6`
+              KUBE_NS=
+
+              kubectl delete secret aws-registry -n $KUBE_NS || true
+              kubectl create secret docker-registry aws-registry -n $KUBE_NS \
+              --docker-server=$DOCKER_REGISTRY_SERVER \
+              --docker-username=$DOCKER_USER \
+              --docker-password=$DOCKER_PASSWORD \
+              --docker-email=no@email.local
+
+              kubectl patch serviceaccount default -p '{"imagePullSecrets":[{"name":"aws-registry"}]}' -n $KUBE_NS

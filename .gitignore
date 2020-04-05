@@ -1,0 +1,11 @@
+.*.swp
+*~
+logs/
+*.directory
+.terraform/
+*.code-workspace
+*.old
+/.idea/
+data/
+
+
